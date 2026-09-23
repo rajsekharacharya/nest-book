@@ -10,7 +10,6 @@ import {
   STATUS_TONES,
   formatCurrency,
   parseDate,
-  todayISO,
 } from '../../lib/booking-rules'
 import { changeBookingStatus } from '../../lib/queries/bookings'
 import {
@@ -72,6 +71,28 @@ export function DashboardPage() {
         <LoadingState />
       ) : (
         <div className="space-y-4">
+          {/* A guest whose checkout has passed is still in a room, silently
+              holding it. Nothing else on the page would show that. */}
+          {stats.todayCounts.overdue > 0 && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/40"
+            >
+              <Icon name="alert" className="size-[1.05rem] shrink-0 text-amber-600 dark:text-amber-400" />
+              <span className="flex-1 text-amber-900 dark:text-amber-200">
+                <span className="tabular font-medium">{stats.todayCounts.overdue}</span>{' '}
+                {stats.todayCounts.overdue === 1 ? 'guest is' : 'guests are'} past their
+                check-out date and still holding a room.
+              </span>
+              <Link
+                to="/app/bookings?view=list"
+                className="font-medium text-amber-900 underline dark:text-amber-200"
+              >
+                Review
+              </Link>
+            </div>
+          )}
+
           <StatRow stats={stats} />
 
           {/* Today's movements lead: they are the work, not the context. */}
@@ -440,7 +461,9 @@ function MovementPanel({
 /* ---------------------------------------------------------- Occupancy */
 
 function OccupancyPanel({ stats }: { stats: DashboardStats }) {
-  const today = todayISO()
+  // The server's idea of today, in the property's time zone — not the
+  // browser's, which can be a day off near midnight.
+  const today = stats.today
   const max = useMemo(
     () => Math.max(stats.occupancy.total, ...stats.trend.map((point) => point.occupied), 1),
     [stats],

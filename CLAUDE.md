@@ -89,6 +89,14 @@ the Supabase SQL editor or CLI.
 - Dates for stays are `date`, never `timestamptz`. "Today" resolves in the property's configured
   time zone, not the browser's and not UTC.
 
+  **Use `public.property_today()` in SQL, never bare `current_date`.** The database runs in UTC
+  and the properties are in India (+05:30), so between local midnight and 05:30 IST `current_date`
+  returns *yesterday* — an in-house guest then reports as not yet arrived. The zone lives in
+  `app_settings.time_zone` (default `Asia/Kolkata`); change it with an UPDATE, not a migration.
+
+  On the client, prefer a date the server sent (for example `stats.today`) over `todayISO()`
+  wherever the two could disagree near midnight.
+
 ## Testing
 
 Concentrate on the SQL rules — overlap semantics, concurrency, capacity, status transitions, and

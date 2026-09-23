@@ -20,7 +20,13 @@ export type DashboardStats = {
     guestsInHouse: number
   }
   occupancy: { occupied: number; total: number; percent: number }
-  todayCounts: { arrivalsDue: number; departuresDue: number; arrived: number }
+  todayCounts: {
+    arrivalsDue: number
+    departuresDue: number
+    arrived: number
+    /** Checked in, but their checkout date has passed — still in the building. */
+    overdue: number
+  }
   revenue: { monthTotal: number; monthLabel: string }
   arrivals: DashboardMovement[]
   departures: DashboardMovement[]
@@ -75,7 +81,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       guests_in_house: number
     }
     occupancy: { occupied: number; total: number; percent: number }
-    today_counts: { arrivals_due: number; departures_due: number; arrived: number }
+    today_counts: {
+      arrivals_due: number
+      departures_due: number
+      arrived: number
+      overdue: number
+    }
     revenue: { month_total: string | number; month_label: string }
     arrivals: RawMovement[]
     departures: RawMovement[]
@@ -106,6 +117,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       arrivalsDue: raw.today_counts.arrivals_due,
       departuresDue: raw.today_counts.departures_due,
       arrived: raw.today_counts.arrived,
+      overdue: raw.today_counts.overdue ?? 0,
     },
     revenue: {
       monthTotal: Number(raw.revenue.month_total),
