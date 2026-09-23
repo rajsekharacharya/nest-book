@@ -19,6 +19,15 @@ const MESSAGES: Record<string, string> = {
   NOT_FOUND: 'That record no longer exists.',
 }
 
+/*
+  Constraint violations arrive as raw Postgres errors, not as our typed codes.
+  Mapped by constraint name so the message names the actual conflict.
+*/
+const CONSTRAINTS: Record<string, string> = {
+  idx_room_types_name_lower: 'A room type with that name already exists.',
+  rooms_unique_number_per_house: 'That room number already exists in this guest house.',
+}
+
 /** Postgres errors arrive as `CODE: detail`; the detail is usually more specific. */
 export function friendlyError(error: unknown): string {
   if (!error) return 'Something went wrong.'
@@ -27,6 +36,10 @@ export function friendlyError(error: unknown): string {
     typeof error === 'string'
       ? error
       : ((error as { message?: string }).message ?? String(error))
+
+  for (const [constraint, message] of Object.entries(CONSTRAINTS)) {
+    if (raw.includes(constraint)) return message
+  }
 
   const match = raw.match(/^([A-Z_]+):\s*(.*)$/)
   if (match) {

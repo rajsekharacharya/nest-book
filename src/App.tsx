@@ -7,6 +7,7 @@ import { RequireAdmin, RequireAuth } from './app/guards'
 import { ToastProvider } from './components/feedback'
 import { LandingPage } from './features/marketing/LandingPage'
 import { LoginPage } from './features/auth/LoginPage'
+import { RoomTypesPage } from './features/room-types/RoomTypesPage'
 import { UsersPage } from './features/users/UsersPage'
 
 /*
@@ -79,10 +80,7 @@ export default function App() {
                     path="room-types"
                     element={
                       <RequireAdmin>
-                        <ComingSoon
-                          title="Room Types"
-                          note="Define the room categories used across your guest houses."
-                        />
+                        <RoomTypesPage />
                       </RequireAdmin>
                     }
                   />
