@@ -1,0 +1,72 @@
+name: Deploy to GitHub Pages
+
+# Deploys main on every push. The build is static: all data comes from Supabase
+# at runtime, so nothing here touches the database.
+on:
+  push:
+    branches: [main]
+  # Lets you re-deploy from the Actions tab without an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once, but let a queued one finish rather than
+# cancelling it — a half-finished deploy is worse than a slightly stale site.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # npm ci, not npm install: installs exactly what the lockfile pins, so a
+      # dependency cannot quietly change between a local build and this one.
+      - run: npm ci
+
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run lint
+
+      - name: Build
+        env:
+          # GitHub Pages serves a project site from /<repo>/, so assets must be
+          # requested from there rather than the domain root.
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      # Fails the deploy rather than publishing a site that cannot reach its
+      # backend — a blank app with a console error is harder to diagnose than a
+      # red build.
+      - name: Verify the build carries its Supabase config
+        run: |
+          if ! grep -rq "supabase.co" dist/assets/*.js; then
+            echo "::error::No Supabase URL in the bundle. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
