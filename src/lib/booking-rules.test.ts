@@ -44,6 +44,16 @@ describe('date handling', () => {
   it('subtracts with a negative offset', () => {
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
   })
+
+  it('tolerates a full timestamp, taking the calendar day', () => {
+    // generate_series with an interval step returns timestamptz, so a missing
+    // ::date cast upstream produced "Invalid Date" on the occupancy chart.
+    expect(toISODate(parseDate('2026-09-22T00:00:00+00:00'))).toBe('2026-09-22')
+  })
+
+  it('does not shift the day for a timestamp with an offset', () => {
+    expect(toISODate(parseDate('2026-09-22T00:00:00+05:30'))).toBe('2026-09-22')
+  })
 })
 
 describe('nightsBetween', () => {

@@ -18,7 +18,10 @@ import type { BookingStatus, BookingType } from './types'
   strings and only turned into a Date at local noon, far from either boundary.
 */
 export function parseDate(iso: string): Date {
-  const [year, month, day] = iso.split('-').map(Number)
+  // Tolerate a full timestamp by taking only the date part. The API returns
+  // plain dates, but a single missing ::date cast upstream would otherwise
+  // surface as "Invalid Date" in the UI rather than as an obvious failure.
+  const [year, month, day] = iso.slice(0, 10).split('-').map(Number)
   return new Date(year, month - 1, day, 12)
 }
 
