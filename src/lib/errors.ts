@@ -17,6 +17,12 @@ const MESSAGES: Record<string, string> = {
   ROOM_CAP_EXCEEDED: 'This guest house has no room slots left.',
   NOT_AUTHORIZED: 'You do not have permission to do that.',
   NOT_FOUND: 'That record no longer exists.',
+  NO_ROOM_NUMBERS: 'Enter at least one room number.',
+  INVALID_RATE: 'Enter a rate of zero or more.',
+  INVALID_CAPACITY: 'A room must hold at least one guest.',
+  ROOM_TYPE_INACTIVE: 'That room type has been retired.',
+  GUEST_HOUSE_HAS_BOOKINGS:
+    'This guest house has bookings, so it cannot be deleted. Deactivate it instead.',
 }
 
 /*

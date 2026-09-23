@@ -121,8 +121,21 @@ Master list of room categories, global (shared across all guest houses).
 | `google_location_url` | text | plain URL string, never geocoded |
 | `contact_person_name` | text, not null | |
 | `contact_person_phone` | text, not null | |
+| `image_path` | text | object path in the `guest-house-images` bucket, not a URL (see below) |
 | `is_active` | boolean, default true | |
 | `created_at` / `updated_at` | timestamptz | |
+
+**Photograph.** Stored in Supabase Storage rather than the database: images are large and binary,
+and a base64 column would bloat every row read and every backup for data a CDN serves better.
+
+The column holds the object *path*, never a full URL — a URL embeds the project hostname, so it
+would break on a project move or custom domain. The client derives the URL from the path.
+
+The `guest-house-images` bucket is **public-read**, deliberately. The guest booking link (§8) is
+unauthenticated, so a private bucket would need signed URLs that expire, silently breaking a link
+a guest saved. The images are photographs of a building and carry nothing sensitive. Writes stay
+admin-only, enforced by RLS on `storage.objects`; a 5 MB cap and an image-only MIME whitelist are
+set on the bucket itself, because the storage API is reachable directly with any user's token.
 
 ### 4.3 `rooms`
 
@@ -453,7 +466,10 @@ insertion share one transaction and RLS still applies to the caller.
 | `set_room_status(room_id uuid, status text)` | Activates/deactivates a room, refusing deactivation while future bookings exist (§6.8) |
 | `rotate_booking_token(booking_id uuid)` | Issues a new `public_token`, invalidating the old guest link (§8) |
 | `check_room_availability(gh uuid, from date, to date, exclude uuid)` | Returns rooms in a guest house free for that range — powers the booking form's room picker |
-| `create_rooms_bulk(gh uuid, room_type uuid, numbers text[], rate numeric, capacity int)` | Inserts a batch of same-type rooms in one transaction (§9.2); rejects the whole batch if any number duplicates an existing room or if the total would exceed `total_rooms` |
+| `create_rooms_bulk(gh uuid, room_type uuid, numbers text[], rate numeric, capacity int)` | Inserts a batch of same-type rooms in one transaction (§9.2); rejects the whole batch if any number duplicates an existing room or if the total would exceed `total_rooms`. Reports *every* clashing number at once, so the list can be corrected in one pass |
+| `update_room(room uuid, room_type uuid, number text, rate numeric, capacity int)` | Edits a single room that differs from its batch. Repricing affects future bookings only — existing ones hold their snapshot (§4.5) |
+| `delete_room(room uuid)` | Removes a room typed in wrongly during setup; refused once it appears on any booking, since that would erase part of a booking's record. Those are deactivated instead (§6.8) |
+| `delete_guest_house(gh uuid)` | Removes a guest house and cascades to its rooms; refused once any booking references it |
 | `get_dashboard_stats()` | Returns the dashboard aggregate (§9.1) in one round trip |
 | `get_booking_by_token(token uuid)` | Returns the trimmed, guest-safe booking view (§8) |
 

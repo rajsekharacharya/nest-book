@@ -7,6 +7,8 @@ import { RequireAdmin, RequireAuth } from './app/guards'
 import { ToastProvider } from './components/feedback'
 import { LandingPage } from './features/marketing/LandingPage'
 import { LoginPage } from './features/auth/LoginPage'
+import { GuestHousesPage } from './features/guest-houses/GuestHousesPage'
+import { GuestHouseDetailPage } from './features/guest-houses/GuestHouseDetailPage'
 import { RoomTypesPage } from './features/room-types/RoomTypesPage'
 import { UsersPage } from './features/users/UsersPage'
 
@@ -69,10 +71,15 @@ export default function App() {
                     path="guest-houses"
                     element={
                       <RequireAdmin>
-                        <ComingSoon
-                          title="Guest Houses"
-                          note="Add guest houses and configure their rooms here."
-                        />
+                        <GuestHousesPage />
+                      </RequireAdmin>
+                    }
+                  />
+                  <Route
+                    path="guest-houses/:id"
+                    element={
+                      <RequireAdmin>
+                        <GuestHouseDetailPage />
                       </RequireAdmin>
                     }
                   />

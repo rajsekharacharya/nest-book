@@ -95,14 +95,18 @@ Concentrate on the SQL rules — overlap semantics, concurrency, capacity, statu
 RLS — per `ARCHITECTURE.md` §13. These are the expensive things to get wrong. Frontend tests cover
 the pure functions in `booking-rules.ts` and the room-number range parser.
 
+Vitest runs with `npm test`. `src/lib/room-numbers.test.ts` covers the range parser, including the
+cases that quietly go wrong: inclusive range ends, preserved leading zeros (`008-010`), and a
+hyphen that belongs to a name (`G-2`) rather than marking a range.
+
 ## Current status
 
 **Built:** full schema and RLS, booking RPCs, auth shell (login, sidebar, theming, route guards),
-landing page, and user management (create, edit, roles, activation, closed registration with
-Google sign-in).
+landing page, user management (create, edit, roles, activation, closed registration with Google
+sign-in), and the masters — room types, and guest houses with photo upload, bulk room-add, and
+per-room editing.
 
-**Next:** room types → guest houses with bulk room-add → bookings → calendar → dashboard →
-guest link → deploy.
+**Next:** bookings → calendar → dashboard → guest link → deploy.
 
 Phases are listed in `ARCHITECTURE.md` §14. The visual design pass is deliberately deferred.
 
