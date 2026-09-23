@@ -204,7 +204,7 @@ export function LandingPage() {
                 Sign in and see every room you have, free or taken, for any date.
               </p>
               <Link to="/login" className="mt-8 inline-block">
-                <Button size="lg" className="bg-white text-brand-800 hover:bg-brand-50">
+                <Button variant="inverse" size="lg">
                   Sign in
                 </Button>
               </Link>

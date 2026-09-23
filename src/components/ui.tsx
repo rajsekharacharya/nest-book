@@ -8,7 +8,7 @@ export function cx(...parts: unknown[]) {
 /* ------------------------------------------------------------------ Button */
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'inverse'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
   icon?: ReactNode
@@ -23,6 +23,9 @@ const BUTTON_VARIANTS: Record<string, string> = {
   ghost:
     'text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]',
   danger: 'bg-red-600 text-white hover:bg-red-700 active:bg-red-800',
+  // For placing on a dark brand surface, where the teal primary would vanish.
+  inverse:
+    'bg-white text-brand-800 shadow-[0_1px_2px_rgba(15,23,42,0.12)] hover:bg-brand-50 active:bg-brand-100',
 }
 
 const BUTTON_SIZES: Record<string, string> = {

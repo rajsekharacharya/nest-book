@@ -39,10 +39,15 @@ Chosen deliberately. Raise them with the project owner before contradicting any 
 | Room assignment | Bookings reserve **specific room numbers** | Availability is checked per physical room, not per room-type quota |
 | Theming | Light **and** dark mode, both required | — |
 | Visual design | Deferred until the functionality is built | Deliberate sequencing, not an oversight |
+| Registration | **Closed.** Only an email an administrator has registered can sign in | Self-signup would hand a stranger a staff profile with real access to bookings |
+| Google sign-in | Enabled, but only for already-registered emails | Convenience for staff, without opening the door to anyone with a Google account |
+| Account creation | Done inside the app, via an edge function | Sending administrators to the Supabase dashboard for a routine task was rejected as a cop-out |
+| Project name | **NestBook** | — |
 
 Each of these shaped the schema: roles produced `profiles` + RLS, guest tokens produced
-`public_token` and the restricted projection function, and per-room booking produced
-`booking_rooms` and the exclusion constraint that prevents double-booking.
+`public_token` and the restricted projection function, per-room booking produced
+`booking_rooms` and the exclusion constraint that prevents double-booking, and closed
+registration produced `allowed_emails` plus a signup trigger that refuses unknown addresses.
 
 ---
 
@@ -62,6 +67,34 @@ The reasoning behind decisions that look arbitrary in the DDL:
 - **The exclusion constraint, not the availability query, is what prevents double-booking.** The
   query exists to produce a helpful error message; only the constraint holds under concurrent
   writes.
+- **Booking tables carry no direct write grants for any role.** Every write goes through a
+  `SECURITY DEFINER` RPC, because granting `insert`/`update` would let a client write through
+  PostgREST and skip validation entirely.
+- **The signup trigger refuses unregistered emails**, aborting the transaction so a rejected
+  Google user leaves no orphaned `auth.users` row behind.
+- **Anything touching `auth.users`** (creating an account, changing an email or password) needs the
+  service key and therefore lives in an edge function, never in the browser. Profile-only fields
+  like display name go through ordinary RPCs — hence the apparent split between the two.
+- **Emails are confirmed on creation and on change**, because no SMTP is configured and a pending
+  confirmation would lock the user out of an address they cannot verify.
+
+---
+
+## Where things live
+
+| Concern | Location |
+|---|---|
+| Schema and rules | `supabase/migrations/*.sql`, forward-only, applied with `npx supabase migration up --linked` |
+| Privileged operations | `supabase/functions/` — `create-user`, `update-user` |
+| Supabase access | `src/lib/queries/*` only; components never call the client directly |
+| Shared derivations | `src/lib/booking-rules.ts` (occupant count, nights, overlap) |
+| Design tokens | `src/index.css` — semantic tokens declared for both themes |
+
+**Local development:** Docker is not installed on the developer's machine, so CLI commands that
+spin up a local Postgres (`db dump`, `db diff`, `supabase start`) do not work. Migrations are
+applied directly to the remote, and edge functions deploy with `--use-api`, which bundles
+server-side. Verifying SQL behaviour is done by applying a transactional probe migration that
+raises a sentinel exception and then rolling itself back — the CLI does not surface `RAISE NOTICE`.
 
 ---
 

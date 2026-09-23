@@ -14,7 +14,8 @@ authorization). No self-managed server.
 |---|---|
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Schema, business rules, RPCs, security model, build phases |
 | [`docs/CONTEXT.md`](docs/CONTEXT.md) | Why the system is shaped this way; settled and open decisions |
-| [`CLAUDE.md`](CLAUDE.md) | Working rules for this repository |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | The design system — colour, type, components, accessibility |
+| [`CLAUDE.md`](CLAUDE.md) | Working rules, current status, environment notes |
 
 ## Getting started
 
@@ -43,10 +44,26 @@ npx supabase link --project-ref <project-ref>
 npx supabase migration up --linked
 ```
 
-The signup trigger assigns every new user the `staff` role. The first admin is promoted once by
-hand in the Supabase SQL editor; every later admin is promoted in-app.
+Registration is closed: only an email an administrator has registered can sign in, with a password
+or with Google. The first account is promoted to administrator by a migration; every later one is
+managed in-app.
+
+Edge functions (`supabase/functions/`) hold the operations that need the service key — creating an
+account, changing an email or password — so that key never reaches the browser:
+
+```bash
+npx supabase functions deploy create-user --use-api
+```
 
 ## Status
 
-Under construction. Schema foundation and master tables are applied; booking core is next.
-See `ARCHITECTURE.md` §14 for the phase plan.
+Under construction.
+
+**Built:** schema, RLS and booking RPCs; auth shell with role-guarded routing and light/dark
+theming; landing page; user management including account creation, editing, roles and closed
+registration with Google sign-in.
+
+**Next:** room types → guest houses with bulk room-add → bookings → calendar → dashboard →
+guest link → deploy.
+
+See `ARCHITECTURE.md` §14 for the full phase plan.

@@ -97,5 +97,42 @@ the pure functions in `booking-rules.ts` and the room-number range parser.
 
 ## Current status
 
-Design phase. `ARCHITECTURE.md` is written and reviewed; no code yet. Build phases are listed in
-§14 of that document. Design/visual pass is deliberately deferred (§14, phase 11).
+**Built:** full schema and RLS, booking RPCs, auth shell (login, sidebar, theming, route guards),
+landing page, and user management (create, edit, roles, activation, closed registration with
+Google sign-in).
+
+**Next:** room types → guest houses with bulk room-add → bookings → calendar → dashboard →
+guest link → deploy.
+
+Phases are listed in `ARCHITECTURE.md` §14. The visual design pass is deliberately deferred.
+
+## Working agreements
+
+Established during the build; they exist because ignoring them wasted time before.
+
+- **Design before building.** Settle the shape of a feature first. Do not scaffold code to show
+  progress.
+- **Recommend, do not interrogate.** Lead with a concrete proposal and the tradeoff. Reserve
+  questions for forks that genuinely change the schema or architecture.
+- **Never send someone to an external dashboard for a routine task.** When something appears to
+  need a privileged key, find the server-side path (an edge function) instead. Dashboard steps are
+  only for genuine one-time setup: creating the project, enabling an OAuth provider.
+- **Keep the dev server running** so changes can be seen as they land, and say what to look at
+  after each one.
+- **Once an approach is agreed, carry it through** and report at the end rather than confirming
+  each step.
+- **Audits should find real faults**, including in work already delivered — not just additions.
+- **Instructions for external tools name the exact clicks**, action first and reasoning after.
+- **This project's visual design is its own.** Do not port anything from the superseded Flutter
+  app; shared functionality does not imply shared presentation.
+
+## Environment notes
+
+Docker is not installed on the developer's machine, so `supabase db dump`, `db diff` and
+`supabase start` all fail. Migrations apply straight to the linked remote; edge functions deploy
+with `--use-api`.
+
+To verify SQL behaviour, apply a temporary migration that runs inside `begin`/`rollback` and ends
+by raising a sentinel exception — the CLI does not print `RAISE NOTICE`. Afterwards delete the
+file and run `npx supabase migration repair --status reverted <version>`, or the phantom entry
+confuses later migrations.
