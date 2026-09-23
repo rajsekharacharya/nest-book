@@ -14,10 +14,13 @@ import {
 } from '../../lib/booking-rules'
 import { changeBookingStatus } from '../../lib/queries/bookings'
 import {
+  getDashboardExtras,
   getDashboardStats,
+  type DashboardExtras,
   type DashboardMovement,
   type DashboardStats,
 } from '../../lib/queries/dashboard'
+import { BarList, OccupancyRing, RevenueChart } from './charts'
 
 export function DashboardPage() {
   const { profile } = useAuth()
@@ -28,6 +31,14 @@ export function DashboardPage() {
     // The front desk's view of "now" should not be minutes stale.
     staleTime: 30_000,
     refetchOnWindowFocus: true,
+  })
+
+  // Separate query so the actionable numbers paint without waiting on the
+  // analysis behind them.
+  const extrasQuery = useQuery({
+    queryKey: ['dashboard-extras'],
+    queryFn: getDashboardExtras,
+    staleTime: 60_000,
   })
 
   const firstName = profile?.full_name?.trim().split(/\s+/)[0]
@@ -81,11 +92,150 @@ export function DashboardPage() {
 
           <div className="grid gap-4 lg:grid-cols-[1fr_20rem] lg:items-start">
             <OccupancyPanel stats={stats} />
+            <TodayRingPanel stats={stats} extras={extrasQuery.data} />
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1fr_20rem] lg:items-start">
+            <RevenuePanel stats={stats} extras={extrasQuery.data} />
             <RecentPanel stats={stats} />
           </div>
+
+          {extrasQuery.data && <BreakdownPanels extras={extrasQuery.data} />}
         </div>
       )}
     </>
+  )
+}
+
+/* -------------------------------------------------- Ring + status mix */
+
+function TodayRingPanel({
+  stats,
+  extras,
+}: {
+  stats: DashboardStats
+  extras?: DashboardExtras
+}) {
+  return (
+    <section className="card p-4 sm:p-5">
+      <h2 className="font-medium">Right now</h2>
+
+      <div className="mt-3 flex justify-center">
+        <OccupancyRing
+          percent={stats.occupancy.percent}
+          occupied={stats.occupancy.occupied}
+          total={stats.occupancy.total}
+        />
+      </div>
+
+      {extras && (
+        <dl className="mt-4 space-y-2 border-t border-[var(--border-subtle)] pt-4 text-sm">
+          <div className="flex items-baseline justify-between">
+            <dt className="text-[var(--text-secondary)]">In house</dt>
+            <dd className="tabular font-medium">{extras.statusMix.checkedIn}</dd>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <dt className="text-[var(--text-secondary)]">Booked ahead</dt>
+            <dd className="tabular font-medium">{extras.statusMix.booked}</dd>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <dt className="text-[var(--text-secondary)]">Arriving this week</dt>
+            <dd className="tabular font-medium">{extras.statusMix.upcomingWeek}</dd>
+          </div>
+        </dl>
+      )}
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------ Revenue */
+
+function RevenuePanel({
+  stats,
+  extras,
+}: {
+  stats: DashboardStats
+  extras?: DashboardExtras
+}) {
+  return (
+    <section className="card p-4 sm:p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-medium">Revenue</h2>
+        {extras && extras.avgRate > 0 && (
+          <p className="text-sm text-[var(--text-muted)]">
+            Average rate{' '}
+            <span className="tabular font-medium text-[var(--text-secondary)]">
+              {formatCurrency(extras.avgRate)}
+            </span>{' '}
+            a night
+          </p>
+        )}
+      </div>
+
+      <p className="tabular mt-1 text-2xl font-semibold tracking-tight">
+        {formatCurrency(stats.revenue.monthTotal)}
+        <span className="ml-2 text-sm font-normal text-[var(--text-muted)]">
+          {stats.revenue.monthLabel}
+        </span>
+      </p>
+
+      <div className="mt-4">
+        {extras ? (
+          <RevenueChart data={extras.revenueMonths} format={formatCurrency} />
+        ) : (
+          <Skeleton className="h-36 w-full" />
+        )}
+      </div>
+
+      <p className="mt-3 text-xs text-[var(--text-muted)]">
+        Counted by check-in date. Cancelled and no-show bookings are excluded.
+      </p>
+    </section>
+  )
+}
+
+/* -------------------------------------------------------- Breakdowns */
+
+function BreakdownPanels({ extras }: { extras: DashboardExtras }) {
+  // A single blended percentage hides a half-empty property, so these are
+  // shown apart whenever there is more than one.
+  const showHouses = extras.houses.length > 1
+
+  return (
+    <div className={cx('grid gap-4', showHouses ? 'lg:grid-cols-2' : '')}>
+      {showHouses && (
+        <section className="card p-4 sm:p-5">
+          <h2 className="font-medium">Occupancy by property</h2>
+          <p className="mt-0.5 text-sm text-[var(--text-secondary)]">Rooms filled today</p>
+          <div className="mt-4">
+            <BarList
+              items={extras.houses.map((house) => ({
+                label: house.name,
+                value: house.occupied,
+                total: house.rooms,
+                note: `${house.percent}% · ${house.occupied}/${house.rooms}`,
+              }))}
+              emptyMessage="No active guest houses."
+            />
+          </div>
+        </section>
+      )}
+
+      <section className="card p-4 sm:p-5">
+        <h2 className="font-medium">Room types</h2>
+        <p className="mt-0.5 text-sm text-[var(--text-secondary)]">What is filled today</p>
+        <div className="mt-4">
+          <BarList
+            items={extras.roomTypes.map((type) => ({
+              label: type.name,
+              value: type.occupied,
+              total: type.rooms,
+            }))}
+            emptyMessage="No rooms configured yet."
+          />
+        </div>
+      </section>
+    </div>
   )
 }
 
@@ -299,7 +449,7 @@ function OccupancyPanel({ stats }: { stats: DashboardStats }) {
   return (
     <section className="card p-4 sm:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-medium">Occupancy</h2>
+        <h2 className="font-medium">Occupancy trend</h2>
         <p className="text-sm text-[var(--text-muted)]">Past week and the fortnight ahead</p>
       </div>
 

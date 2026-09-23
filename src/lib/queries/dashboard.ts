@@ -126,3 +126,47 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     trend: raw.trend ?? [],
   }
 }
+
+/* ------------------------------------------------------------- Extras */
+
+export type DashboardExtras = {
+  revenueMonths: { month: string; label: string; total: number; bookings: number }[]
+  houses: { id: string; name: string; rooms: number; occupied: number; percent: number }[]
+  roomTypes: { name: string; rooms: number; occupied: number }[]
+  statusMix: { booked: number; checkedIn: number; upcomingWeek: number }
+  avgRate: number
+}
+
+/*
+  Split from getDashboardStats so the page paints the numbers someone acts on
+  first, and fills in the analysis behind it. Both are one round trip each.
+*/
+export async function getDashboardExtras(): Promise<DashboardExtras> {
+  const { data, error } = await supabase.rpc('get_dashboard_extras')
+  if (error) throw error
+
+  const raw = data as {
+    revenue_months: { month: string; label: string; total: string | number; bookings: number }[]
+    houses: { id: string; name: string; rooms: number; occupied: number; percent: number }[]
+    room_types: { name: string; rooms: number; occupied: number }[]
+    status_mix: { booked: number; checked_in: number; upcoming_week: number }
+    avg_rate: string | number
+  }
+
+  return {
+    revenueMonths: (raw.revenue_months ?? []).map((row) => ({
+      month: row.month,
+      label: row.label,
+      total: Number(row.total),
+      bookings: row.bookings,
+    })),
+    houses: raw.houses ?? [],
+    roomTypes: raw.room_types ?? [],
+    statusMix: {
+      booked: raw.status_mix.booked,
+      checkedIn: raw.status_mix.checked_in,
+      upcomingWeek: raw.status_mix.upcoming_week,
+    },
+    avgRate: Number(raw.avg_rate),
+  }
+}
