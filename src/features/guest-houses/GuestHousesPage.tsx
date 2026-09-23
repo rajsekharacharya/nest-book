@@ -282,8 +282,14 @@ function GuestHouseCard({
           </Button>
           {/* Deleting is refused server-side once bookings exist; offered here
               because a property typed in wrongly during setup should be removable. */}
-          <Button variant="ghost" size="sm" onClick={onDelete} aria-label={`Delete ${house.name}`}>
-            <Icon name="close" className="size-4" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            aria-label={`Delete ${house.name}`}
+            className="text-[var(--text-muted)] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+          >
+            <Icon name="trash" className="size-4" />
           </Button>
         </div>
       </div>

@@ -270,6 +270,21 @@ const PATHS: Record<string, ReactNode> = {
   ),
   'eye-off': <path d="M4 4l16 16M10 5.7A7.8 7.8 0 0 1 12 5.5c6.4 0 10 6.5 10 6.5a17 17 0 0 1-3.3 4M6.5 8.3A16.6 16.6 0 0 0 2 12s3.6 6.5 10 6.5c1.2 0 2.3-.2 3.3-.6M9.6 9.8a3 3 0 0 0 4.2 4.2" />,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  trash: (
+    <>
+      <path d="M4 7h16M10 11v6M14 11v6" />
+      <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
+      <path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2" />
+    </>
+  ),
+  // A room withdrawn from service — a bed with a line through it.
+  'bed-off': (
+    <>
+      <path d="M3 18V7M3 12h18a2 2 0 0 1 2 2v4" />
+      <circle cx="8" cy="10" r="2" />
+      <path d="M4 4l16 16" />
+    </>
+  ),
 }
 
 export function Icon({

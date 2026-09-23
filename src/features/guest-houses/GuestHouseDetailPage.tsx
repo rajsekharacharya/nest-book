@@ -317,14 +317,23 @@ function RoomRow({
       className={cx(
         'flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 transition-colors sm:px-5',
         'hover:bg-[var(--surface-hover)]',
-        room.status === 'INACTIVE' && 'opacity-60',
       )}
     >
-      <span className="tabular flex min-w-14 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-sunken)] px-2.5 py-1.5 font-medium">
+      {/* Only the room's own details dim when it is withdrawn. Fading the whole
+          row would mute the badge and the button that undoes it — the two
+          things you most need on exactly that row. */}
+      <span
+        className={cx(
+          'tabular flex min-w-14 shrink-0 items-center justify-center rounded-lg px-2.5 py-1.5 font-medium',
+          room.status === 'ACTIVE'
+            ? 'bg-[var(--surface-sunken)]'
+            : 'bg-[var(--surface-sunken)] text-[var(--text-muted)] line-through decoration-1',
+        )}
+      >
         {room.roomNumber}
       </span>
 
-      <div className="min-w-0 flex-1">
+      <div className={cx('min-w-0 flex-1', room.status === 'INACTIVE' && 'opacity-55')}>
         <p className="tabular text-sm">
           <span className="font-medium">₹{room.ratePerNight.toLocaleString('en-IN')}</span>
           <span className="text-[var(--text-muted)]"> / night</span>
@@ -334,8 +343,14 @@ function RoomRow({
         </p>
       </div>
 
-      {room.status === 'INACTIVE' && (
-        <Badge tone="amber" className="shrink-0">
+      {/* Shown for both states. A badge only on the bad one makes every healthy
+          row look unlabelled, and leaves "in service" to be inferred. */}
+      {room.status === 'ACTIVE' ? (
+        <Badge tone="green" dot className="shrink-0">
+          In service
+        </Badge>
+      ) : (
+        <Badge tone="amber" dot className="shrink-0">
           Out of service
         </Badge>
       )}
@@ -344,11 +359,36 @@ function RoomRow({
         <Button variant="ghost" size="sm" onClick={onEdit}>
           Edit
         </Button>
-        <Button variant="ghost" size="sm" onClick={onToggleStatus}>
-          {room.status === 'ACTIVE' ? 'Out of service' : 'Restore'}
+        {/* Named for the action, not the destination state: "Out of service"
+            beside a working room reads as a label saying it is broken. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleStatus}
+          icon={
+            <Icon
+              name={room.status === 'ACTIVE' ? 'bed-off' : 'bed'}
+              className="size-4"
+            />
+          }
+        >
+          <span className="hidden sm:inline">
+            {room.status === 'ACTIVE' ? 'Take out of service' : 'Put back in service'}
+          </span>
+          <span className="sr-only sm:hidden">
+            {room.status === 'ACTIVE'
+              ? `Take room ${room.roomNumber} out of service`
+              : `Put room ${room.roomNumber} back in service`}
+          </span>
         </Button>
-        <Button variant="ghost" size="sm" onClick={onDelete} aria-label={`Delete room ${room.roomNumber}`}>
-          <Icon name="close" className="size-4" />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          aria-label={`Delete room ${room.roomNumber}`}
+          className="text-[var(--text-muted)] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+        >
+          <Icon name="trash" className="size-4" />
         </Button>
       </div>
     </li>
