@@ -1,0 +1,101 @@
+# CLAUDE.md
+
+Guidance for Claude Code (claude.ai/code) when working in this repository.
+
+## Start of session
+
+Read `ARCHITECTURE.md` first — the source of truth for schema, business rules, and build phases.
+If the implementation diverges from it, update it in the same change; a stale architecture doc is
+worse than none.
+
+Then read `docs/CONTEXT.md` for the reasoning behind the design: why this stack, which decisions
+are settled, and what is still open. Keep it current as decisions are made — it is where project
+memory lives, in the repo rather than in any one person's or tool's local state.
+
+## Project
+
+**Guest House Management System** — a web app for managing guest houses, rooms, and bookings,
+with role-based access and a shareable read-only booking link for guests.
+
+- Frontend: React + Vite + TypeScript + Tailwind, deployed static to GitHub Pages
+- Backend: Supabase (Postgres + PostgREST + Auth). There is no self-managed server
+- Authorization: Postgres Row Level Security, not client-side checks
+
+## Non-negotiable rules
+
+These encode decisions that are expensive to reverse. Do not work around them.
+
+1. **Business rules live in the database, not the client.** Every booking write goes through a
+   `SECURITY DEFINER` RPC (`ARCHITECTURE.md` §7) that validates inside one transaction. No role
+   holds direct insert/update grants on `bookings`, `booking_rooms`, or `booking_guests` —
+   granting them would let a client skip every check. Client-side validation exists for fast
+   feedback only and is never the authority.
+
+2. **Date-overlap logic has exactly one definition.** `existing.check_in < new.check_out AND
+   existing.check_out > new.check_in` — checkout day is free for a new check-in. It lives in
+   `ranges_overlap()` in SQL and `booking-rules.ts` on the client. Never reimplement it inline;
+   every availability, calendar, and occupancy query reuses it.
+
+3. **The exclusion constraint on `booking_rooms` is the real double-booking guard.** The explicit
+   availability check exists to produce a friendly error message; the constraint is what makes the
+   guarantee true under concurrent writes. Never drop it, and never rely on the `SELECT` check
+   alone.
+
+4. **Rates are snapshotted onto `booking_rooms` at booking time.** Never join to `rooms.rate` to
+   value a past booking — editing a room's price must not rewrite history.
+
+5. **Cancelled and no-show bookings are excluded from every availability, occupancy, and revenue
+   calculation.** Rows are never hard-deleted by staff; history is preserved.
+
+6. **The service role key never appears in frontend code.** Only `VITE_SUPABASE_ANON_KEY`. Admin
+   operations needing elevated rights go through an Edge Function.
+
+7. **`SECURITY DEFINER` functions always set `search_path = public`** explicitly.
+
+## Architecture
+
+Strict layering — components never call Supabase directly:
+
+```
+src/features/*        screens
+   → src/lib/queries/*   the ONLY place the Supabase client is called
+      → Supabase RPC / PostgREST
+         → Postgres (RLS + constraints + validation functions)
+```
+
+Shared derivations (occupant count per booking type, nights, overlap) live in
+`src/lib/booking-rules.ts` and are reused by both the form and display code.
+
+## Commands
+
+```
+npm run dev        # local dev server
+npm run build      # production build to dist/
+npm run typecheck  # tsc --noEmit
+npm run lint
+npm test
+```
+
+Migrations live in `supabase/migrations/*.sql`, are forward-only, and are committed. Apply through
+the Supabase SQL editor or CLI.
+
+## Conventions
+
+- TypeScript strict mode. No `any` in committed code.
+- Database identifiers are `snake_case`; TypeScript is `camelCase`. Map at the query layer, not
+  throughout the UI.
+- Errors surface as the typed codes in `ARCHITECTURE.md` §7, mapped to plain-language messages.
+  A raw Postgres error must never reach the user.
+- Dates for stays are `date`, never `timestamptz`. "Today" resolves in the property's configured
+  time zone, not the browser's and not UTC.
+
+## Testing
+
+Concentrate on the SQL rules — overlap semantics, concurrency, capacity, status transitions, and
+RLS — per `ARCHITECTURE.md` §13. These are the expensive things to get wrong. Frontend tests cover
+the pure functions in `booking-rules.ts` and the room-number range parser.
+
+## Current status
+
+Design phase. `ARCHITECTURE.md` is written and reviewed; no code yet. Build phases are listed in
+§14 of that document. Design/visual pass is deliberately deferred (§14, phase 11).
