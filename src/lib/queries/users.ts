@@ -36,6 +36,30 @@ export async function updateMyName(fullName: string): Promise<void> {
   if (error) throw error
 }
 
+/*
+  Registration is closed: signing in — including via Google — only works for an
+  email an administrator has registered. Creating a user registers it
+  automatically; this is for inviting someone who will arrive via Google before
+  any account exists.
+*/
+export async function allowEmail(email: string): Promise<void> {
+  const { error } = await supabase.rpc('allow_email', { p_email: email })
+  if (error) throw error
+}
+
+export async function revokeEmail(email: string): Promise<void> {
+  const { error } = await supabase.rpc('revoke_email', { p_email: email })
+  if (error) throw error
+}
+
+export type AllowedEmail = { email: string; created_at: string; has_account: boolean }
+
+export async function listAllowedEmails(): Promise<AllowedEmail[]> {
+  const { data, error } = await supabase.rpc('list_allowed_emails')
+  if (error) throw error
+  return (data ?? []) as AllowedEmail[]
+}
+
 export async function updateUserName(userId: string, fullName: string): Promise<void> {
   const { error } = await supabase.rpc('update_user_name', {
     p_user_id: userId,

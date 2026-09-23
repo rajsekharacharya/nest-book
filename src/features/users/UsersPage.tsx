@@ -15,8 +15,11 @@ import {
 } from '../../components/feedback'
 import { friendlyError } from '../../lib/errors'
 import {
+  allowEmail,
   createUser,
+  listAllowedEmails,
   listUsers,
+  revokeEmail,
   updateMyName,
   updateUserAccess,
   updateUserCredentials,
@@ -171,8 +174,136 @@ export function UsersPage() {
         onClose={() => setEditing(null)}
       />
 
+      <AllowedEmails />
+
       <CreateUserDialog open={showInvite} onClose={() => setShowInvite(false)} />
     </>
+  )
+}
+
+/* --------------------------------------------------------- Allowed emails */
+
+/*
+  Sign-in is closed: only a registered email can authenticate, with a password
+  or with Google. Creating a user registers their email automatically, so this
+  panel is for the other case — inviting someone who will arrive through Google
+  before any account exists.
+*/
+function AllowedEmails() {
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
+  const [email, setEmail] = useState('')
+  const [expanded, setExpanded] = useState(false)
+
+  const query = useQuery({ queryKey: ['allowed-emails'], queryFn: listAllowedEmails })
+
+  const addMutation = useMutation({
+    mutationFn: allowEmail,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['allowed-emails'] })
+      setEmail('')
+      notify('Email registered — they can now sign in with Google.')
+    },
+    onError: (error) => notify(friendlyError(error), 'error'),
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: revokeEmail,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['allowed-emails'] })
+      notify('Invitation withdrawn.')
+    },
+    onError: (error) => notify(friendlyError(error), 'error'),
+  })
+
+  const entries = query.data ?? []
+  const pending = entries.filter((entry) => !entry.has_account)
+
+  return (
+    <section className="card mt-6 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-[var(--surface-hover)] sm:px-5"
+      >
+        <div>
+          <h2 className="font-medium">Who may sign in</h2>
+          <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
+            Only registered emails can sign in, including with Google.
+            {pending.length > 0 && ` ${pending.length} invitation${pending.length === 1 ? '' : 's'} pending.`}
+          </p>
+        </div>
+        <Icon
+          name="close"
+          className={cx(
+            'size-4 shrink-0 text-[var(--text-muted)] transition-transform',
+            expanded ? 'rotate-0' : 'rotate-45',
+          )}
+        />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-[var(--border-subtle)] px-4 py-4 sm:px-5">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              const trimmed = email.trim()
+              if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+                notify('Enter a valid email address.', 'error')
+                return
+              }
+              addMutation.mutate(trimmed)
+            }}
+            className="flex flex-col gap-2 sm:flex-row"
+          >
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="colleague@example.com"
+              aria-label="Email to register"
+              className="input-base sm:flex-1"
+              disabled={addMutation.isPending}
+            />
+            <Button type="submit" loading={addMutation.isPending}>
+              Register email
+            </Button>
+          </form>
+
+          <p className="mt-2.5 text-sm text-[var(--text-muted)]">
+            Their Google address must match exactly, or they will be turned away.
+          </p>
+
+          {entries.length > 0 && (
+            <ul className="mt-4 space-y-1.5">
+              {entries.map((entry) => (
+                <li
+                  key={entry.email}
+                  className="flex items-center gap-3 rounded-lg bg-[var(--surface-sunken)] px-3 py-2 text-sm"
+                >
+                  <span className="min-w-0 flex-1 truncate">{entry.email}</span>
+                  {entry.has_account ? (
+                    <Badge tone="green">Has account</Badge>
+                  ) : (
+                    <>
+                      <Badge tone="amber">Awaiting first sign-in</Badge>
+                      <button
+                        type="button"
+                        onClick={() => removeMutation.mutate(entry.email)}
+                        disabled={removeMutation.isPending}
+                        className="shrink-0 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+                      >
+                        Withdraw
+                      </button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 

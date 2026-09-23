@@ -17,6 +17,7 @@ type AuthContextValue = {
   loading: boolean
   isAdmin: boolean
   signIn: (email: string, password: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -76,6 +77,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error
   }, [])
 
+  const signInWithGoogle = useCallback(async () => {
+    // Back to this exact page: the hash route is preserved so the redirect
+    // lands on the app rather than the repository root on GitHub Pages.
+    const redirectTo = `${window.location.origin}${window.location.pathname}`
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    })
+    if (error) throw error
+  }, [])
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     setProfile(null)
@@ -92,10 +104,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAdmin: profile?.role === 'admin',
       signIn,
+      signInWithGoogle,
       signOut,
       refreshProfile,
     }),
-    [session, profile, loading, signIn, signOut, refreshProfile],
+    [session, profile, loading, signIn, signInWithGoogle, signOut, refreshProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -1,9 +1,48 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../app/AuthProvider'
 import { useTheme } from '../../app/ThemeProvider'
 import { Button, Field, Icon, Logo, ThemeToggle } from '../../components/ui'
 import { friendlyError } from '../../lib/errors'
+
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-[1.15rem]" aria-hidden>
+      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z" />
+      <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1 .7-2.3 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24Z" />
+      <path fill="#FBBC05" d="M5.4 14.3a7.2 7.2 0 0 1 0-4.6V6.6H1.4a12 12 0 0 0 0 10.8l4-3.1Z" />
+      <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8Z" />
+    </svg>
+  )
+}
+
+/*
+  A rejected OAuth sign-in comes back as an error in the URL fragment rather
+  than as a thrown error, because the redirect happens outside the app. The
+  database refuses uninvited emails with a message Supabase surfaces as a
+  generic server error, so it is translated into something actionable here.
+*/
+function readOAuthError(): string | null {
+  const hash = window.location.hash
+  const queryStart = hash.indexOf('?')
+  const params = new URLSearchParams(
+    queryStart >= 0 ? hash.slice(queryStart + 1) : window.location.search,
+  )
+
+  const code = params.get('error_code')
+  const description = params.get('error_description')
+  if (!code && !description) return null
+
+  // Clear it so a refresh does not resurrect a stale error.
+  window.history.replaceState(null, '', window.location.pathname + '#/login')
+
+  const text = `${code ?? ''} ${description ?? ''}`
+  if (/database error|unexpected_failure|saving new user/i.test(text)) {
+    return 'This Google account is not registered. Ask an administrator to add you, then try again.'
+  }
+  if (/access_denied/i.test(text)) return 'Google sign-in was cancelled.'
+  return description ? description.replace(/\+/g, ' ') : 'Google sign-in failed.'
+}
 
 const HIGHLIGHTS = [
   { icon: 'calendar', title: 'Live availability', body: 'Rooms are checked the moment you pick dates — double-bookings are impossible.' },
@@ -12,7 +51,7 @@ const HIGHLIGHTS = [
 ] as const
 
 export function LoginPage() {
-  const { session, signIn } = useAuth()
+  const { session, signIn, signInWithGoogle } = useAuth()
   const { resolved, toggle } = useTheme()
   const location = useLocation()
 
@@ -21,6 +60,24 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+
+  useEffect(() => {
+    const oauthError = readOAuthError()
+    if (oauthError) setError(oauthError)
+  }, [])
+
+  async function onGoogle() {
+    setError(null)
+    setGoogleLoading(true)
+    try {
+      await signInWithGoogle()
+      // On success the browser navigates away, so nothing follows.
+    } catch (caught) {
+      setError(friendlyError(caught))
+      setGoogleLoading(false)
+    }
+  }
 
   if (session) {
     const from = (location.state as { from?: string } | null)?.from
@@ -127,17 +184,40 @@ export function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={onSubmit} noValidate className="space-y-5">
-              {error && (
-                <div
-                  role="alert"
-                  className="animate-fade-up flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
-                >
-                  <Icon name="alert" className="mt-px size-4 shrink-0" />
-                  <span>{error}</span>
-                </div>
-              )}
+            {error && (
+              <div
+                role="alert"
+                className="animate-fade-up mb-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+              >
+                <Icon name="alert" className="mt-px size-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
+            <div className="mb-6 space-y-5">
+              <Button
+                type="button"
+                variant="secondary"
+                size="lg"
+                fullWidth
+                onClick={() => void onGoogle()}
+                loading={googleLoading}
+                icon={googleLoading ? undefined : <GoogleMark />}
+                disabled={submitting}
+              >
+                {googleLoading ? 'Opening Google…' : 'Continue with Google'}
+              </Button>
+
+              <div className="flex items-center gap-3">
+                <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+                <span className="text-xs font-medium tracking-wide text-[var(--text-muted)] uppercase">
+                  or
+                </span>
+                <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+              </div>
+            </div>
+
+            <form onSubmit={onSubmit} noValidate className="space-y-5">
               <Field
                 label="Email"
                 type="email"
