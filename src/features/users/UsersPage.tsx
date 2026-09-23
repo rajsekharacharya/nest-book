@@ -14,7 +14,13 @@ import {
   useToast,
 } from '../../components/feedback'
 import { friendlyError } from '../../lib/errors'
-import { listUsers, updateMyName, updateUserAccess, type UserRow } from '../../lib/queries/users'
+import {
+  createUser,
+  listUsers,
+  updateMyName,
+  updateUserAccess,
+  type UserRow,
+} from '../../lib/queries/users'
 import type { Role } from '../../lib/types'
 
 export function UsersPage() {
@@ -113,7 +119,7 @@ export function UsersPage() {
             message={
               search
                 ? 'No user matches that search.'
-                : 'Create accounts from the Supabase dashboard, then set their role here.'
+                : 'Add an account so your staff can sign in.'
             }
           />
         ) : (
@@ -176,7 +182,7 @@ export function UsersPage() {
         loading={renameMutation.isPending}
       />
 
-      <InviteDialog open={showInvite} onClose={() => setShowInvite(false)} />
+      <CreateUserDialog open={showInvite} onClose={() => setShowInvite(false)} />
     </>
   )
 }
@@ -317,54 +323,239 @@ function RenameDialog({
   )
 }
 
-/* ------------------------------------------------------------------ Invite */
+/* ------------------------------------------------------------- Create user */
 
-function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const projectRef = (import.meta.env.VITE_SUPABASE_URL ?? '')
-    .replace('https://', '')
-    .replace('.supabase.co', '')
+function randomPassword() {
+  // Ambiguous characters (O/0, l/1) are left out so the password can be read
+  // aloud or copied by hand without confusion.
+  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+  const values = crypto.getRandomValues(new Uint32Array(14))
+  return Array.from(values, (value) => alphabet[value % alphabet.length]).join('')
+}
+
+function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
+
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState<Role>('staff')
+  const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [created, setCreated] = useState<{ email: string; password: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  function reset() {
+    setFullName('')
+    setEmail('')
+    setPassword('')
+    setRole('staff')
+    setErrors({})
+    setCreated(null)
+    setCopied(false)
+  }
+
+  function close() {
+    reset()
+    onClose()
+  }
+
+  const mutation = useMutation({
+    mutationFn: createUser,
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ['users'] })
+      if (result.warning) notify(result.warning, 'error')
+      // The password is shown once, here — it is never stored or recoverable.
+      setCreated({ email, password })
+    },
+    onError: (error) => setErrors({ form: friendlyError(error) }),
+  })
+
+  function submit() {
+    const next: Record<string, string> = {}
+    if (!email.trim()) next.email = 'Enter an email address.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+      next.email = 'That does not look like an email address.'
+    if (password.length < 8) next.password = 'Use at least 8 characters.'
+
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
+
+    mutation.mutate({ email: email.trim(), password, fullName: fullName.trim(), role })
+  }
+
+  async function copyDetails() {
+    if (!created) return
+    try {
+      await navigator.clipboard.writeText(
+        `Email: ${created.email}\nPassword: ${created.password}`,
+      )
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      notify('Could not copy — select the text instead.', 'error')
+    }
+  }
+
+  if (created) {
+    return (
+      <Modal
+        open={open}
+        onClose={close}
+        title="Account created"
+        description="Share these details — the password cannot be shown again."
+        size="sm"
+        footer={<Button onClick={close}>Done</Button>}
+      >
+        <div className="space-y-4">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-sunken)] p-4">
+            <dl className="space-y-2.5 text-sm">
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-[var(--text-muted)]">Email</dt>
+                <dd className="truncate font-medium">{created.email}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-[var(--text-muted)]">Password</dt>
+                <dd className="font-mono font-medium tracking-tight">{created.password}</dd>
+              </div>
+            </dl>
+          </div>
+
+          <Button
+            variant="secondary"
+            fullWidth
+            onClick={() => void copyDetails()}
+            icon={<Icon name={copied ? 'check' : 'users'} className="size-4" />}
+          >
+            {copied ? 'Copied' : 'Copy details'}
+          </Button>
+
+          <p className="text-sm text-[var(--text-muted)]">
+            They can change it after signing in.
+          </p>
+        </div>
+      </Modal>
+    )
+  }
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={close}
       title="Add a user"
-      description="New accounts are created in Supabase, then given a role here."
-      footer={<Button onClick={onClose}>Got it</Button>}
+      description="They can sign in as soon as you save."
+      footer={
+        <>
+          <Button variant="secondary" onClick={close} disabled={mutation.isPending}>
+            Cancel
+          </Button>
+          <Button onClick={submit} loading={mutation.isPending}>
+            Create account
+          </Button>
+        </>
+      }
     >
-      <div className="space-y-4 text-sm">
-        <p className="text-[var(--text-secondary)]">
-          Creating a password-based account requires a privileged key that must never be
-          shipped to a browser, so this step happens in the Supabase dashboard.
-        </p>
-
-        <ol className="space-y-3">
-          {[
-            'Open Authentication → Users in your Supabase project.',
-            'Choose Add user → Create new user.',
-            'Enter their email and a password, and tick Auto Confirm User.',
-            'Return here — they will appear in the list as staff, and you can promote them.',
-          ].map((step, index) => (
-            <li key={step} className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-                {index + 1}
-              </span>
-              <span className="pt-0.5 text-[var(--text-secondary)]">{step}</span>
-            </li>
-          ))}
-        </ol>
-
-        {projectRef && (
-          <a
-            href={`https://supabase.com/dashboard/project/${projectRef}/auth/users`}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center gap-1.5 font-medium text-brand-700 hover:underline dark:text-brand-300"
+      <div className="space-y-4">
+        {errors.form && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
           >
-            Open Supabase users
-            <Icon name="logout" className="size-4" />
-          </a>
+            <Icon name="alert" className="mt-px size-4 shrink-0" />
+            <span>{errors.form}</span>
+          </div>
         )}
+
+        <Field
+          label="Full name"
+          placeholder="Priya Sharma"
+          value={fullName}
+          onChange={(event) => setFullName(event.target.value)}
+          hint="Optional — shown across the app."
+          disabled={mutation.isPending}
+        />
+
+        <Field
+          label="Email"
+          type="email"
+          placeholder="priya@example.com"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          error={errors.email}
+          leading={<Icon name="mail" className="size-[1.05rem]" />}
+          disabled={mutation.isPending}
+        />
+
+        <Field
+          label="Password"
+          type={showPassword ? 'text' : 'password'}
+          placeholder="At least 8 characters"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          error={errors.password}
+          leading={<Icon name="lock" className="size-[1.05rem]" />}
+          disabled={mutation.isPending}
+          trailing={
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="flex size-8 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+            >
+              <Icon name={showPassword ? 'eye-off' : 'eye'} className="size-[1.05rem]" />
+            </button>
+          }
+        />
+
+        <button
+          type="button"
+          onClick={() => {
+            setPassword(randomPassword())
+            setShowPassword(true)
+          }}
+          className="text-sm font-medium text-brand-700 hover:underline dark:text-brand-300"
+        >
+          Generate a password
+        </button>
+
+        <fieldset className="space-y-2">
+          <legend className="mb-2 block text-sm font-medium text-[var(--text-secondary)]">
+            Role
+          </legend>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                { value: 'staff', title: 'Staff', body: 'Create and manage bookings.' },
+                { value: 'admin', title: 'Admin', body: 'Full access, including users.' },
+              ] as const
+            ).map((option) => (
+              <label
+                key={option.value}
+                className={cx(
+                  'flex cursor-pointer gap-2.5 rounded-xl border p-3 transition-colors',
+                  role === option.value
+                    ? 'border-brand-500 bg-brand-50/60 dark:bg-brand-950/40'
+                    : 'border-[var(--border-strong)] hover:bg-[var(--surface-hover)]',
+                )}
+              >
+                <input
+                  type="radio"
+                  name="role"
+                  value={option.value}
+                  checked={role === option.value}
+                  onChange={() => setRole(option.value)}
+                  className="mt-0.5 size-4 accent-[var(--color-brand-600)]"
+                  disabled={mutation.isPending}
+                />
+                <span>
+                  <span className="block text-sm font-medium">{option.title}</span>
+                  <span className="block text-xs text-[var(--text-muted)]">{option.body}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       </div>
     </Modal>
   )
