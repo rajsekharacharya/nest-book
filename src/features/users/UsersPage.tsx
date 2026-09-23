@@ -19,6 +19,8 @@ import {
   listUsers,
   updateMyName,
   updateUserAccess,
+  updateUserCredentials,
+  updateUserName,
   type UserRow,
 } from '../../lib/queries/users'
 import type { Role } from '../../lib/types'
@@ -26,13 +28,12 @@ import type { Role } from '../../lib/types'
 export function UsersPage() {
   const queryClient = useQueryClient()
   const { notify } = useToast()
-  const { refreshProfile } = useAuth()
 
   const [search, setSearch] = useState('')
   const [pendingAccess, setPendingAccess] = useState<
     { user: UserRow; role?: Role; isActive?: boolean; title: string; message: string } | null
   >(null)
-  const [renaming, setRenaming] = useState<UserRow | null>(null)
+  const [editing, setEditing] = useState<UserRow | null>(null)
   const [showInvite, setShowInvite] = useState(false)
 
   const usersQuery = useQuery({ queryKey: ['users'], queryFn: listUsers })
@@ -43,17 +44,6 @@ export function UsersPage() {
       void queryClient.invalidateQueries({ queryKey: ['users'] })
       setPendingAccess(null)
       notify('User updated.')
-    },
-    onError: (error) => notify(friendlyError(error), 'error'),
-  })
-
-  const renameMutation = useMutation({
-    mutationFn: updateMyName,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['users'] })
-      await refreshProfile()
-      setRenaming(null)
-      notify('Name updated.')
     },
     onError: (error) => notify(friendlyError(error), 'error'),
   })
@@ -129,7 +119,7 @@ export function UsersPage() {
                 key={user.id}
                 user={user}
                 isLastAdmin={user.role === 'admin' && user.is_active && adminCount === 1}
-                onRename={() => setRenaming(user)}
+                onEdit={() => setEditing(user)}
                 onChangeRole={(role) =>
                   setPendingAccess({
                     user,
@@ -175,11 +165,10 @@ export function UsersPage() {
         loading={accessMutation.isPending}
       />
 
-      <RenameDialog
-        user={renaming}
-        onClose={() => setRenaming(null)}
-        onSave={(name) => renameMutation.mutate(name)}
-        loading={renameMutation.isPending}
+      <EditUserDialog
+        user={editing}
+        isSelf={editing?.is_self ?? false}
+        onClose={() => setEditing(null)}
       />
 
       <CreateUserDialog open={showInvite} onClose={() => setShowInvite(false)} />
@@ -192,13 +181,13 @@ export function UsersPage() {
 function UserRowItem({
   user,
   isLastAdmin,
-  onRename,
+  onEdit,
   onChangeRole,
   onToggleActive,
 }: {
   user: UserRow
   isLastAdmin: boolean
-  onRename: () => void
+  onEdit: () => void
   onChangeRole: (role: Role) => void
   onToggleActive: () => void
 }) {
@@ -252,11 +241,9 @@ function UserRowItem({
       </Badge>
 
       <div className="flex shrink-0 items-center gap-1">
-        {user.is_self && (
-          <Button variant="ghost" size="sm" onClick={onRename}>
-            Rename
-          </Button>
-        )}
+        <Button variant="ghost" size="sm" onClick={onEdit}>
+          Edit
+        </Button>
         {!locked && (
           <>
             <Button
@@ -279,46 +266,201 @@ function UserRowItem({
   )
 }
 
-/* ------------------------------------------------------------------ Rename */
+/* -------------------------------------------------------------- Edit user */
 
-function RenameDialog({
+function EditUserDialog({
   user,
+  isSelf,
   onClose,
-  onSave,
-  loading,
 }: {
   user: UserRow | null
+  isSelf: boolean
   onClose: () => void
-  onSave: (name: string) => void
-  loading: boolean
 }) {
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
+  const { refreshProfile } = useAuth()
+
   const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [changePassword, setChangePassword] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+
+  // Re-seed the fields whenever a different user is opened.
+  const [seededFor, setSeededFor] = useState<string | null>(null)
+  if (user && seededFor !== user.id) {
+    setSeededFor(user.id)
+    setName(user.full_name ?? '')
+    setEmail(user.email)
+    setPassword('')
+    setChangePassword(false)
+    setShowPassword(false)
+    setErrors({})
+  }
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (!user) return
+
+      const trimmedName = name.trim()
+      const trimmedEmail = email.trim().toLowerCase()
+
+      if (trimmedName !== (user.full_name ?? '')) {
+        // Renaming yourself needs no admin rights; renaming a colleague does.
+        if (isSelf) await updateMyName(trimmedName)
+        else await updateUserName(user.id, trimmedName)
+      }
+
+      const emailChanged = trimmedEmail !== user.email.toLowerCase()
+      if (emailChanged || (changePassword && password)) {
+        await updateUserCredentials({
+          userId: user.id,
+          email: emailChanged ? trimmedEmail : undefined,
+          password: changePassword && password ? password : undefined,
+        })
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['users'] })
+      if (isSelf) await refreshProfile()
+      notify('Account updated.')
+      onClose()
+    },
+    onError: (error) => setErrors({ form: friendlyError(error) }),
+  })
+
+  function submit() {
+    if (!user) return
+    const next: Record<string, string> = {}
+
+    if (!email.trim()) next.email = 'Enter an email address.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+      next.email = 'That does not look like an email address.'
+
+    if (changePassword && password.length < 8) next.password = 'Use at least 8 characters.'
+
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
+
+    mutation.mutate()
+  }
+
+  const emailChanged = Boolean(user) && email.trim().toLowerCase() !== user!.email.toLowerCase()
 
   return (
     <Modal
       open={Boolean(user)}
       onClose={onClose}
-      title="Your display name"
-      description="This is how you appear across the app."
-      size="sm"
+      title={isSelf ? 'Your account' : 'Edit user'}
+      description={isSelf ? 'Update your own details.' : user?.email}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={loading}>
+          <Button variant="secondary" onClick={onClose} disabled={mutation.isPending}>
             Cancel
           </Button>
-          <Button onClick={() => onSave(name)} loading={loading} disabled={!name.trim()}>
-            Save
+          <Button onClick={submit} loading={mutation.isPending}>
+            Save changes
           </Button>
         </>
       }
     >
-      <Field
-        label="Full name"
-        autoFocus
-        placeholder={user?.email.split('@')[0] ?? ''}
-        defaultValue={user?.full_name ?? ''}
-        onChange={(event) => setName(event.target.value)}
-      />
+      <div className="space-y-4">
+        {errors.form && (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+          >
+            <Icon name="alert" className="mt-px size-4 shrink-0" />
+            <span>{errors.form}</span>
+          </div>
+        )}
+
+        <Field
+          label="Full name"
+          autoFocus
+          placeholder={user?.email.split('@')[0] ?? ''}
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          disabled={mutation.isPending}
+        />
+
+        <Field
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          error={errors.email}
+          leading={<Icon name="mail" className="size-[1.05rem]" />}
+          disabled={mutation.isPending}
+          hint={
+            emailChanged
+              ? isSelf
+                ? 'You will sign in with this address from now on.'
+                : 'They will sign in with this address from now on.'
+              : undefined
+          }
+        />
+
+        <div className="rounded-xl border border-[var(--border-subtle)] p-3.5">
+          <label className="flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={changePassword}
+              onChange={(event) => {
+                setChangePassword(event.target.checked)
+                if (!event.target.checked) setPassword('')
+              }}
+              className="mt-0.5 size-4 accent-[var(--color-brand-600)]"
+              disabled={mutation.isPending}
+            />
+            <span>
+              <span className="block text-sm font-medium">Set a new password</span>
+              <span className="block text-xs text-[var(--text-muted)]">
+                {isSelf
+                  ? 'You will stay signed in on this device.'
+                  : 'Their existing password stops working immediately.'}
+              </span>
+            </span>
+          </label>
+
+          {changePassword && (
+            <div className="mt-3.5 space-y-3">
+              <Field
+                label="New password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                error={errors.password}
+                leading={<Icon name="lock" className="size-[1.05rem]" />}
+                disabled={mutation.isPending}
+                trailing={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="flex size-8 items-center justify-center rounded-md text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
+                  >
+                    <Icon name={showPassword ? 'eye-off' : 'eye'} className="size-[1.05rem]" />
+                  </button>
+                }
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setPassword(randomPassword())
+                  setShowPassword(true)
+                }}
+                className="text-sm font-medium text-brand-700 hover:underline dark:text-brand-300"
+              >
+                Generate a password
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </Modal>
   )
 }

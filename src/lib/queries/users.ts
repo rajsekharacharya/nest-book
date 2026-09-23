@@ -36,6 +36,38 @@ export async function updateMyName(fullName: string): Promise<void> {
   if (error) throw error
 }
 
+export async function updateUserName(userId: string, fullName: string): Promise<void> {
+  const { error } = await supabase.rpc('update_user_name', {
+    p_user_id: userId,
+    p_full_name: fullName,
+  })
+  if (error) throw error
+}
+
+/*
+  Email and password live in auth.users, which the API cannot write, so these go
+  through an edge function holding the service key. Name is a profile column and
+  goes through the RPC above — hence the split.
+*/
+export async function updateUserCredentials(input: {
+  userId: string
+  email?: string
+  password?: string
+}): Promise<void> {
+  if (!input.email && !input.password) return
+
+  const { data, error } = await supabase.functions.invoke('update-user', {
+    body: {
+      user_id: input.userId,
+      ...(input.email ? { email: input.email } : {}),
+      ...(input.password ? { password: input.password } : {}),
+    },
+  })
+
+  if (error) throw new Error(await readFunctionError(error))
+  if (data?.error) throw new Error(data.error)
+}
+
 /*
   Account creation needs the service role key, so it happens in an edge function
   where that key stays server-side. The function re-checks that the caller is an
@@ -56,21 +88,24 @@ export async function createUser(input: {
     },
   })
 
-  if (error) {
-    // Non-2xx responses carry the useful message in the body, not in error.message.
-    let message = error.message
-    const response = (error as { context?: Response }).context
-    if (response && typeof response.json === 'function') {
-      try {
-        const body = await response.json()
-        if (body?.error) message = body.error
-      } catch {
-        /* keep the original message */
-      }
-    }
-    throw new Error(message)
-  }
-
+  if (error) throw new Error(await readFunctionError(error))
   if (data?.error) throw new Error(data.error)
   return data
+}
+
+/*
+  An edge function's non-2xx response carries the useful message in the body;
+  error.message is only ever a generic "non-2xx status code".
+*/
+async function readFunctionError(error: Error): Promise<string> {
+  const response = (error as { context?: Response }).context
+  if (response && typeof response.json === 'function') {
+    try {
+      const body = await response.json()
+      if (body?.error) return body.error as string
+    } catch {
+      /* fall through to the original message */
+    }
+  }
+  return error.message
 }
