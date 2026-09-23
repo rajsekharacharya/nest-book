@@ -117,9 +117,14 @@ Depth comes from a `1px` border plus a soft shadow, not from heavy drop shadows:
 
 Mobile-first, with three breakpoints: `sm` 640px, `lg` 1024px, `xl` 1280px.
 
-- **Sidebar** is fixed at `17rem` from `lg` up; below that it becomes a slide-in drawer with a
-  backdrop, closing on navigation, on Escape, and on backdrop tap. Page scroll is locked while it
-  is open.
+- **Sidebar** is `position: fixed` at `17rem` and a full `dvh` tall at every width; the content
+  column is offset by that width from `lg` up. It deliberately sits outside the page flow, so a
+  long page scrolls its content while navigation stays put — a sidebar that scrolls away makes
+  every jump a scroll to the top first. Its own nav list scrolls internally if it ever outgrows
+  the viewport, keeping the account block pinned to the bottom.
+
+  Below `lg` the same element becomes a slide-in drawer with a backdrop, closing on navigation, on
+  Escape, and on backdrop tap. Page scroll is locked only while it is open.
 - **Page padding** steps `1rem` → `1.5rem` → `2rem`.
 - **Tables become cards** below `sm`. A horizontally scrolling table is not usable on a phone.
 - **Modals** are centred dialogs on desktop and bottom sheets on mobile, capped at `92dvh` so the

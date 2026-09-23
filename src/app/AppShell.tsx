@@ -50,7 +50,7 @@ export function AppShell() {
   const displayName = profile?.full_name?.trim() || 'Account'
 
   return (
-    <div className="min-h-dvh lg:flex">
+    <div className="min-h-dvh">
       {/* Scrim */}
       <div
         onClick={() => setMobileOpen(false)}
@@ -62,10 +62,13 @@ export function AppShell() {
       />
 
       <aside
+        // Fixed at every width, not just mobile. Previously it was lg:static
+        // inside a flex row, so it sat in the page flow and scrolled away on a
+        // long page — navigation should always be reachable.
         className={cx(
-          'fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-col',
+          'fixed inset-y-0 left-0 z-50 flex h-dvh w-[17rem] flex-col',
           'transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-          'lg:static lg:z-auto lg:translate-x-0',
+          'lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
         style={{ backgroundColor: 'var(--sidebar-bg)' }}
@@ -144,7 +147,8 @@ export function AppShell() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* Offset by the sidebar's width, since it is out of the page flow. */}
+      <div className="flex min-h-dvh min-w-0 flex-col lg:pl-[17rem]">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-[var(--border-subtle)] bg-[var(--surface-card)]/85 px-4 backdrop-blur-md lg:hidden">
           <button
             type="button"
