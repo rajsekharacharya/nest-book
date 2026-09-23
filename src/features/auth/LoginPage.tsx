@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../app/AuthProvider'
 import { useTheme } from '../../app/ThemeProvider'
 import { Button, Field, Icon, Logo, ThemeToggle } from '../../components/ui'
@@ -34,7 +34,7 @@ function readOAuthError(): string | null {
   if (!code && !description) return null
 
   // Clear it so a refresh does not resurrect a stale error.
-  window.history.replaceState(null, '', window.location.pathname + '#/login')
+  window.history.replaceState(null, '', `${window.location.pathname}#/login`)
 
   const text = `${code ?? ''} ${description ?? ''}`
   if (/database error|unexpected_failure|saving new user/i.test(text)) {
@@ -81,7 +81,7 @@ export function LoginPage() {
 
   if (session) {
     const from = (location.state as { from?: string } | null)?.from
-    return <Navigate to={from ?? '/'} replace />
+    return <Navigate to={from ?? '/app'} replace />
   }
 
   async function onSubmit(event: FormEvent) {
@@ -165,11 +165,15 @@ export function LoginPage() {
 
       {/* Form panel */}
       <main className="flex flex-1 flex-col bg-[var(--surface-page)]">
-        <header className="flex items-center justify-between p-5 lg:justify-end lg:p-6">
-          <div className="flex items-center gap-2.5 lg:hidden">
-            <Logo className="size-8" />
-            <span className="font-semibold tracking-tight">NestBook</span>
-          </div>
+        <header className="flex items-center justify-between p-5 lg:p-6">
+          <Link
+            to="/"
+            className="flex items-center gap-2.5 rounded-lg text-sm text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+          >
+            <Logo className="size-8 lg:hidden" />
+            <span className="font-semibold tracking-tight lg:hidden">NestBook</span>
+            <span className="hidden lg:inline">← Back</span>
+          </Link>
           <ThemeToggle resolved={resolved} onToggle={toggle} />
         </header>
 

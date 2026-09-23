@@ -12,11 +12,11 @@ type NavItem = {
 }
 
 const NAV: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: 'dashboard' },
-  { to: '/bookings', label: 'Bookings', icon: 'calendar' },
-  { to: '/guest-houses', label: 'Guest Houses', icon: 'building', adminOnly: true },
-  { to: '/room-types', label: 'Room Types', icon: 'bed', adminOnly: true },
-  { to: '/users', label: 'Users', icon: 'users', adminOnly: true },
+  { to: '/app', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/app/bookings', label: 'Bookings', icon: 'calendar' },
+  { to: '/app/guest-houses', label: 'Guest Houses', icon: 'building', adminOnly: true },
+  { to: '/app/room-types', label: 'Room Types', icon: 'bed', adminOnly: true },
+  { to: '/app/users', label: 'Users', icon: 'users', adminOnly: true },
 ]
 
 export function AppShell() {
@@ -90,7 +90,7 @@ export function AppShell() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
+              end={item.to === '/app'}
               className={({ isActive }) =>
                 cx(
                   'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
