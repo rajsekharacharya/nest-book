@@ -2,12 +2,13 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './app/AuthProvider'
 import { ThemeProvider } from './app/ThemeProvider'
-import { AppShell, ComingSoon } from './app/AppShell'
+import { AppShell } from './app/AppShell'
 import { RequireAdmin, RequireAuth } from './app/guards'
 import { ToastProvider } from './components/feedback'
 import { LandingPage } from './features/marketing/LandingPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { GuestBookingPage } from './features/guest-link/GuestBookingPage'
+import { DashboardPage } from './features/dashboard/DashboardPage'
 import { BookingsPage } from './features/bookings/BookingsPage'
 import { BookingFormPage } from './features/bookings/BookingFormPage'
 import { BookingDetailPage } from './features/bookings/BookingDetailPage'
@@ -57,15 +58,7 @@ export default function App() {
                     </RequireAuth>
                   }
                 >
-                  <Route
-                    index
-                    element={
-                      <ComingSoon
-                        title="Dashboard"
-                        note="Occupancy, arrivals and departures will appear here once bookings are built."
-                      />
-                    }
-                  />
+                  <Route index element={<DashboardPage />} />
                   {/* "new" precedes ":id" so it is not read as a booking id. */}
                   <Route path="bookings" element={<BookingsPage />} />
                   <Route path="bookings/new" element={<BookingFormPage />} />

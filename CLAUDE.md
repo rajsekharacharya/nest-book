@@ -101,13 +101,13 @@ hyphen that belongs to a name (`G-2`) rather than marking a range.
 
 ## Current status
 
-**Built:** full schema and RLS, booking RPCs, auth shell (login, sidebar, theming, route guards),
-landing page, user management (create, edit, roles, activation, closed registration with Google
-sign-in), the masters (room types; guest houses with photo upload, bulk room-add and per-room
-editing), and bookings — form with availability-checked room picker and repeat-guest prefill,
-list view, month calendar, detail page with check-in/out, cancel, no-show and extend/shorten.
+**Built:** every screen. Full schema and RLS, booking RPCs, auth shell, landing page, user
+management, the masters (room types; guest houses with photo upload and bulk room-add), bookings
+(form with availability-checked room picker, list, month calendar, detail with the full
+lifecycle), the public guest link page, and the dashboard.
 
-**Next:** dashboard → guest link page → deploy.
+**Next:** GitHub Pages deploy. Outstanding on the owner's side: repo Settings → Pages → Source:
+GitHub Actions.
 
 Phases are listed in `ARCHITECTURE.md` §14. The visual design pass is deliberately deferred.
 

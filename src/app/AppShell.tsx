@@ -192,21 +192,4 @@ export function PageHeader({
   )
 }
 
-/* ----------------------------------------------------------- Placeholder */
-
-export function ComingSoon({ title, note }: { title: string; note: string }) {
-  return (
-    <>
-      <PageHeader title={title} />
-      <div className="card flex flex-col items-center justify-center px-6 py-20 text-center">
-        <span className="flex size-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-300">
-          <Icon name="bed" className="size-6" />
-        </span>
-        <h2 className="mt-5 text-lg font-medium">Not built yet</h2>
-        <p className="mt-2 max-w-sm text-sm text-[var(--text-secondary)]">{note}</p>
-      </div>
-    </>
-  )
-}
-
 export { Button }
