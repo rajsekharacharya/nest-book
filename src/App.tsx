@@ -1,10 +1,12 @@
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { AuthProvider } from './app/AuthProvider'
-import { ThemeProvider } from './app/ThemeProvider'
-import { AppShell, ComingSoon } from './app/AppShell'
-import { RequireAdmin, RequireAuth } from './app/guards'
-import { LoginPage } from './features/auth/LoginPage'
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "./app/AuthProvider";
+import { ThemeProvider } from "./app/ThemeProvider";
+import { AppShell, ComingSoon } from "./app/AppShell";
+import { RequireAdmin, RequireAuth } from "./app/guards";
+import { ToastProvider } from "./components/feedback";
+import { LoginPage } from "./features/auth/LoginPage";
+import { UsersPage } from "./features/users/UsersPage";
 
 /*
   HashRouter, not BrowserRouter: GitHub Pages cannot rewrite unknown paths to
@@ -19,82 +21,81 @@ const queryClient = new QueryClient({
       retry: 1,
     },
   },
-})
+});
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <AuthProvider>
-          <HashRouter>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
+        <ToastProvider>
+          <AuthProvider>
+            <HashRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
 
-              <Route
-                element={
-                  <RequireAuth>
-                    <AppShell />
-                  </RequireAuth>
-                }
-              >
                 <Route
-                  index
                   element={
-                    <ComingSoon
-                      title="Dashboard"
-                      note="Occupancy, arrivals and departures will appear here once bookings are built."
-                    />
+                    <RequireAuth>
+                      <AppShell />
+                    </RequireAuth>
                   }
-                />
-                <Route
-                  path="bookings"
-                  element={
-                    <ComingSoon
-                      title="Bookings"
-                      note="The booking list and month calendar are the next thing to be built."
-                    />
-                  }
-                />
-                <Route
-                  path="guest-houses"
-                  element={
-                    <RequireAdmin>
+                >
+                  <Route
+                    index
+                    element={
                       <ComingSoon
-                        title="Guest Houses"
-                        note="Add guest houses and configure their rooms here."
+                        title="Dashboard"
+                        note="Occupancy, arrivals and departures will appear here once bookings are built."
                       />
-                    </RequireAdmin>
-                  }
-                />
-                <Route
-                  path="room-types"
-                  element={
-                    <RequireAdmin>
+                    }
+                  />
+                  <Route
+                    path="bookings"
+                    element={
                       <ComingSoon
-                        title="Room Types"
-                        note="Define the room categories used across your guest houses."
+                        title="Bookings"
+                        note="The booking list and month calendar are the next thing to be built."
                       />
-                    </RequireAdmin>
-                  }
-                />
-                <Route
-                  path="users"
-                  element={
-                    <RequireAdmin>
-                      <ComingSoon
-                        title="Users"
-                        note="Invite staff and assign roles here."
-                      />
-                    </RequireAdmin>
-                  }
-                />
-              </Route>
+                    }
+                  />
+                  <Route
+                    path="guest-houses"
+                    element={
+                      <RequireAdmin>
+                        <ComingSoon
+                          title="Guest Houses"
+                          note="Add guest houses and configure their rooms here."
+                        />
+                      </RequireAdmin>
+                    }
+                  />
+                  <Route
+                    path="room-types"
+                    element={
+                      <RequireAdmin>
+                        <ComingSoon
+                          title="Room Types"
+                          note="Define the room categories used across your guest houses."
+                        />
+                      </RequireAdmin>
+                    }
+                  />
+                  <Route
+                    path="users"
+                    element={
+                      <RequireAdmin>
+                        <UsersPage />
+                      </RequireAdmin>
+                    }
+                  />
+                </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </HashRouter>
-        </AuthProvider>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </HashRouter>
+          </AuthProvider>
+        </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
-  )
+  );
 }
