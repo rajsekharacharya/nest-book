@@ -7,6 +7,7 @@ import { RequireAdmin, RequireAuth } from './app/guards'
 import { ToastProvider } from './components/feedback'
 import { LandingPage } from './features/marketing/LandingPage'
 import { LoginPage } from './features/auth/LoginPage'
+import { GuestBookingPage } from './features/guest-link/GuestBookingPage'
 import { BookingsPage } from './features/bookings/BookingsPage'
 import { BookingFormPage } from './features/bookings/BookingFormPage'
 import { BookingDetailPage } from './features/bookings/BookingDetailPage'
@@ -43,6 +44,10 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
+
+                {/* Public: the token is the credential, so this sits outside
+                    RequireAuth. The server returns a narrow projection (§8). */}
+                <Route path="/stay/:token" element={<GuestBookingPage />} />
 
                 <Route
                   path="/app"
