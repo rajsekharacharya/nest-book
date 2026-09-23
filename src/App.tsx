@@ -7,6 +7,9 @@ import { RequireAdmin, RequireAuth } from './app/guards'
 import { ToastProvider } from './components/feedback'
 import { LandingPage } from './features/marketing/LandingPage'
 import { LoginPage } from './features/auth/LoginPage'
+import { BookingsPage } from './features/bookings/BookingsPage'
+import { BookingFormPage } from './features/bookings/BookingFormPage'
+import { BookingDetailPage } from './features/bookings/BookingDetailPage'
 import { GuestHousesPage } from './features/guest-houses/GuestHousesPage'
 import { GuestHouseDetailPage } from './features/guest-houses/GuestHouseDetailPage'
 import { RoomTypesPage } from './features/room-types/RoomTypesPage'
@@ -58,15 +61,11 @@ export default function App() {
                       />
                     }
                   />
-                  <Route
-                    path="bookings"
-                    element={
-                      <ComingSoon
-                        title="Bookings"
-                        note="The booking list and month calendar are the next thing to be built."
-                      />
-                    }
-                  />
+                  {/* "new" precedes ":id" so it is not read as a booking id. */}
+                  <Route path="bookings" element={<BookingsPage />} />
+                  <Route path="bookings/new" element={<BookingFormPage />} />
+                  <Route path="bookings/:id" element={<BookingDetailPage />} />
+                  <Route path="bookings/:id/edit" element={<BookingFormPage />} />
                   <Route
                     path="guest-houses"
                     element={

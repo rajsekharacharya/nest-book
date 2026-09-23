@@ -471,6 +471,10 @@ insertion share one transaction and RLS still applies to the caller.
 | `delete_room(room uuid)` | Removes a room typed in wrongly during setup; refused once it appears on any booking, since that would erase part of a booking's record. Those are deactivated instead (§6.8) |
 | `delete_guest_house(gh uuid)` | Removes a guest house and cascades to its rooms; refused once any booking references it |
 | `get_dashboard_stats()` | Returns the dashboard aggregate (§9.1) in one round trip |
+| `list_bookings(gh, status[], from, to, search, limit, offset)` | The list view (§9.4), filtered server-side. A date filter uses the overlap rule, so a stay already running when the window opens still appears. Returns room numbers and occupant count per row, avoiding an N+1 |
+| `get_booking_detail(booking uuid)` | One booking with its rooms, guests and snapshotted rates (§9.5) |
+| `get_calendar(from, to, gh)` | One row per room with its bookings in the window (§9.4). Includes rooms with no bookings — a grid that omits empty rooms cannot show free space |
+| `find_previous_guest(contact text)` | Most recent booking on a contact number, for repeat-guest prefill (§9.3) |
 | `get_booking_by_token(token uuid)` | Returns the trimmed, guest-safe booking view (§8) |
 
 Error codes returned by the booking functions: `INVALID_DATES`, `GUEST_HOUSE_INACTIVE`,

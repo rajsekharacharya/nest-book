@@ -103,10 +103,11 @@ hyphen that belongs to a name (`G-2`) rather than marking a range.
 
 **Built:** full schema and RLS, booking RPCs, auth shell (login, sidebar, theming, route guards),
 landing page, user management (create, edit, roles, activation, closed registration with Google
-sign-in), and the masters — room types, and guest houses with photo upload, bulk room-add, and
-per-room editing.
+sign-in), the masters (room types; guest houses with photo upload, bulk room-add and per-room
+editing), and bookings — form with availability-checked room picker and repeat-guest prefill,
+list view, month calendar, detail page with check-in/out, cancel, no-show and extend/shorten.
 
-**Next:** bookings → calendar → dashboard → guest link → deploy.
+**Next:** dashboard → guest link page → deploy.
 
 Phases are listed in `ARCHITECTURE.md` §14. The visual design pass is deliberately deferred.
 
